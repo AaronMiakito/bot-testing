@@ -1,0 +1,105 @@
+name: Deploy to EC2 when a release tag is pushed
+
+on:
+  push:
+    tags:
+      - 'v*-release'
+
+env:
+  AWS_REGION: eu-west-3
+  IMAGE_NAME: telegram_template
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  terraform-init-and-apply:
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Configure AWS credentials from GitHub Actions OIDC provider
+        uses: aws-actions/configure-aws-credentials@v1.7.0
+        with:
+          role-to-assume: arn:aws:iam::949484832983:role/Github-OpenIDConnect-Role
+          role-session-name: GitHub_to_AWS_via_FederatedOIDC
+          aws-region: ${{ env.AWS_REGION }}
+          audience: sts.amazonaws.com
+
+      - name: Terraform Init and Apply
+        run: |
+          cd terraform/
+          terraform init
+          terraform apply -auto-approve
+  build-and-push-on-release-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Docker login
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      
+      - name: Set env
+        run: echo "TAG_NAME=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+        
+      - name: Build and push
+        run: |
+          docker build -t miakito/${{env.IMAGE_NAME}}:${{ env.TAG_NAME }} .
+          docker push miakito/${{env.IMAGE_NAME}}:${{ env.TAG_NAME }}
+  deploy-to-ec2:
+    runs-on: ubuntu-latest
+    needs: [terraform-init-and-apply, build-and-push-on-release-tag]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials from GitHub Actions OIDC provider
+        uses: aws-actions/configure-aws-credentials@v1.7.0
+        with:
+          role-to-assume: arn:aws:iam::949484832983:role/Github-OpenIDConnect-Role
+          role-session-name: GitHub_to_AWS_via_FederatedOIDC
+          aws-region: ${{ env.AWS_REGION }}
+          audience: sts.amazonaws.com
+
+      - name: get tag name
+        run: echo "TAG_NAME=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+
+      - name: get public ip from terraform
+        run: |
+          cd terraform/
+          terraform init
+          echo "EC2_PUBLIC_IP=$(terraform output ec2_public_ip)" >> $GITHUB_ENV
+
+      - name: create-pem-file
+        run: |
+          echo "${{ secrets.AWS_GITHUB_SSH_KEY }}" > keypair.pem
+          chmod 600 keypair.pem
+
+      - name: install docker on ec2 instance
+        run: |
+          cd terraform/
+          scp -i ../keypair.pem -o StrictHostKeyChecking=no ./install_docker.sh ubuntu@${{ env.EC2_PUBLIC_IP }}:.
+          ssh -i ../keypair.pem ubuntu@${{ env.EC2_PUBLIC_IP }} -o StrictHostKeyChecking=no << EOF
+          chmod +x install_docker.sh
+          ./install_docker.sh
+          EOF
+          ssh -i ../keypair.pem ubuntu@${{ env.EC2_PUBLIC_IP }} -o StrictHostKeyChecking=no << EOF
+          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
+          docker pull miakito/${{env.IMAGE_NAME}}:${{env.TAG_NAME}}
+          docker stop ${{env.IMAGE_NAME}} || true
+          docker rm ${{env.IMAGE_NAME}} || true
+          docker run -d --name ${{env.IMAGE_NAME}} \
+            -e AI_MACHINE_URL=${{ vars.SMART_ENDPOINT}} \
+            -e TELEGRAM_TOKEN=${{ secrets.TELEGRAM_TOKEN }} \
+            -e AI_MACHINE_TIMEOUT=${{ vars.AI_MACHINE_TIMEOUT }} \
+            -e OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} \
+            miakito/${{env.IMAGE_NAME}}:${{env.TAG_NAME}}
+          EOF
+

@@ -1,0 +1,35 @@
+{
+  "mission": "Tu es Jérémy, un coach sportif et nutritionnel, inspirant et motivant 👏. Tu donnes des conseils personnalisés. Tu peux utiliser l'outil vector_search pour obtenir des ressources si tu penses que les résultats ne répondent pas.",
+  "tools": {
+    "multiply_1": {
+      "tool_class_name": "multiply"
+    },
+    "vector_search_1": {
+      "tool_class_name": "vector_search",
+      "index_name": "jeremy-loreau-index",
+      "k": 3
+    }
+  },
+  "views": {
+    "history_1": {
+        "view_class_name": "history",
+        "k": 10,
+        "collection": "history_4",
+        "drop_last_user_message": true
+    },
+    "query_2": {
+      "view_class_name": "query",
+      "add_timestamp": true,
+      "custom_prefix": "",
+      "custom_suffix": "-👋-"
+    },
+    "vector_search_3": {
+      "view_class_name": "vector_search",
+      "k": 3,
+      "index_name": "jeremy-loreau-index"
+    }
+  },
+  "personality": "Tu es extrêmement concis : tu réponds en 1 à 3 phrases maximum.",
+  "temperature": 0.7,
+  "model_name": "gpt-3.5-turbo-1106"
+}

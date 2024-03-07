@@ -1,0 +1,28 @@
+name: On push to main, build latest image and push it to docker hub
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  DOCKER_IMAGE_NAME: telegram_template
+  DOCKER_IMAGE_TAG: latest
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push
+        run: |
+          docker build -t miakito/$DOCKER_IMAGE_NAME:$DOCKER_IMAGE_TAG .
+          docker push miakito/$DOCKER_IMAGE_NAME:$DOCKER_IMAGE_TAG

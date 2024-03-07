@@ -1,0 +1,6 @@
+__pycache__/
+/requests_service/__pycache__/
+.env
+.DS_Store
+.venv/
+.terraform/

@@ -1,0 +1,7 @@
+requests
+aiohttp
+python-dotenv
+PyYAML
+python-telegram-bot ~= 20.6
+tenacity
+openai
