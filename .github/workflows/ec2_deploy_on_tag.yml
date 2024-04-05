@@ -99,7 +99,6 @@ jobs:
             -e AI_MACHINE_URL=${{ vars.SMART_ENDPOINT}} \
             -e TELEGRAM_TOKEN=${{ secrets.TELEGRAM_TOKEN }} \
             -e AI_MACHINE_TIMEOUT=${{ vars.AI_MACHINE_TIMEOUT }} \
-            -e OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} \
             miakito/${{env.IMAGE_NAME}}:${{env.TAG_NAME}}
           EOF
 
